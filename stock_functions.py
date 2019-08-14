@@ -4,10 +4,7 @@ import HTMLParser
 import webbrowser
 import time
 
-
-
 tickers_list = []
-#f = open("file.txt", 'w')
 
 
 # Get stock data
@@ -49,6 +46,7 @@ def GrabTradingViewTickers():
     if response != 'y':
         sys.exit("Can't listen to instructions? Right click and save as!")
 
+    ticker_file = open("tickers.txt", 'w')
     f = open("earnings.html", 'r')
     tradingview_data = f.read()
     f.close()
@@ -57,6 +55,7 @@ def GrabTradingViewTickers():
     totalCount_start = tradingview_data.find("totalCount")
     totalCount_end = tradingview_data.find(",", totalCount_start)
     totalCount = int(tradingview_data[totalCount_start+13: totalCount_end])
+    ticker_file.write("%d\n" % (totalCount))
 
     # Find the stock tickers
     search_for = "table__result-row\" data-symbol"
@@ -67,15 +66,8 @@ def GrabTradingViewTickers():
         stock_end = tradingview_data.find("\">", stock_start)
         stock = tradingview_data[stock_start+1: stock_end]
         tickers_list.append(stock)
+        ticker_file.write(stock)
+        ticker_file.write("\n")
 
+    ticker_file.close()
     return totalCount
-
-
-num_tickers = GrabTradingViewTickers()
-print("Grabbed %d tickers from TradingView" %(num_tickers))
-print tickers_list
-# for i in tickers_list:
-#     stock_price = GrabStockPrice(i)
-#     print (i + " - " + stock_price)
-#     f.write(i + " - " + stock_price)
-# f.close()

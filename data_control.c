@@ -12,7 +12,7 @@
 #include <signal.h>
 
 #define TICKER_SIZE_HOLD 15
-#define NUM_PROCESSES 3
+#define NUM_PROCESSES 4
 
 // Function Prototypes
 void setupPython();
@@ -24,7 +24,7 @@ void fillArrayWithPrices(double*, int, char**, int, int);
 int main(int argc, char *argv[]){
 
  // Declare variables
-  int totalTickers, numTickers, status;
+  int totalTickers, numTickers, status, start, end;
   FILE* fp;
   char** tickers;
   pid_t pid[NUM_PROCESSES];
@@ -43,9 +43,10 @@ int main(int argc, char *argv[]){
    {
    // Child process 1
       pid[0] = getpid();
-      numTickers = totalTickers / 2;
+      numTickers = totalTickers / NUM_PROCESSES;
       double tickerArray_A[numTickers];
-      fillArrayWithPrices(tickerArray_A, numTickers, tickers, 0, numTickers);
+      end = numTickers;
+      fillArrayWithPrices(tickerArray_A, numTickers, tickers, 0, end);
       exit(0);
     } // END CHILD 1
 
@@ -53,16 +54,82 @@ int main(int argc, char *argv[]){
     {
     // Child process 2
       pid[1] = getpid();
-      if (totalTickers % 2 == 0) { numTickers = totalTickers/2; }
-      else  { numTickers = totalTickers/2 + 1; }
+      numTickers = totalTickers / NUM_PROCESSES;
+      if (totalTickers % NUM_PROCESSES == 3) { numTickers++; }
       double tickerArray_B[numTickers];
-      fillArrayWithPrices(tickerArray_B, numTickers, tickers, totalTickers/2, totalTickers);
+      start = totalTickers / NUM_PROCESSES;
+      end = start + numTickers;
+      fillArrayWithPrices(tickerArray_B, numTickers, tickers, start, end);
       exit(0);
-    }
+    } // END CHILD 2
+
+    else if ((pid[2] = fork()) == 0)
+    {
+    // Child process 3
+      pid[2] = getpid();
+      numTickers = totalTickers / NUM_PROCESSES;
+
+      if (totalTickers % NUM_PROCESSES == 3)
+      {
+        start = totalTickers / NUM_PROCESSES * 2 + 1;
+        numTickers++;
+      }
+
+      else if (totalTickers % NUM_PROCESSES == 2)
+      {
+        start = totalTickers / NUM_PROCESSES * 2;
+        numTickers++;
+      }
+      else
+      {
+        start = totalTickers / NUM_PROCESSES * 2;
+      }
+
+      end = start + numTickers;
+      double tickerArray_C[numTickers];
+      fillArrayWithPrices(tickerArray_C, numTickers, tickers, start, end);
+      exit(0);
+    } // END CHILD 3
+
+    else if ((pid[3] = fork()) == 0)
+    {
+      // Child process 4
+      pid[3] = getpid();
+      numTickers = totalTickers / NUM_PROCESSES;
+      if (totalTickers % NUM_PROCESSES == 3)
+      {
+        start = numTickers * 3 + 2;
+        numTickers++;
+      }
+
+      else if (totalTickers % NUM_PROCESSES == 2)
+      {
+         start = numTickers * 3 + 1;
+         numTickers++;
+      }
+
+      else if (totalTickers % NUM_PROCESSES == 1)
+      {
+         start = numTickers * 3;
+         numTickers++;
+      }
+
+      else
+      {
+        start = numTickers * 3;
+      }
+
+      end = start + numTickers;
+      double tickerArray_D[numTickers];
+      fillArrayWithPrices(tickerArray_D, numTickers, tickers, start, end);
+      exit(0);
+    } // END CHILD 4
 
     // Parent process
       waitpid(pid[0], &status, 0);
       waitpid(pid[1], &status, 0);
+      waitpid(pid[2], &status, 0);
+      waitpid(pid[3], &status, 0);
 
 
  return 0;
@@ -121,7 +188,7 @@ void fillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, in
   {
       findPrice(tickers[i], ticker_result);
       if (strcmp(ticker_result, "N/A") == 0)
-         printf("Error\n");
+         printf("%s - Error\n", tickers[i]);
       else
       {
          sscanf(ticker_result, "%lf", &tickerArray[i]);

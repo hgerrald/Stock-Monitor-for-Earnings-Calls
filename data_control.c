@@ -2,32 +2,14 @@
  * Created by Heath Gerrald
  */
 
-#include <Python.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <signal.h>
-
-#define TICKER_SIZE_HOLD 15
-#define NUM_PROCESSES 4
-
-// Function Prototypes
-void setupPython();
-void findPrice();
-void GrabTickers(char**, FILE*, int);
-void fillArrayWithPrices(double*, int, char**, int, int);
-
+#include "data_control.h"
 
 int main(int argc, char *argv[]){
 
  // Declare variables
-  int totalTickers, numTickers, status, start, end;
+  int totalTickers;
   FILE* fp;
   char** tickers;
-  pid_t pid[NUM_PROCESSES];
 
 // Grab how many tickers we are going to watch
   fp = fopen("tickers.txt", "r");
@@ -35,108 +17,23 @@ int main(int argc, char *argv[]){
 
  // Create a C object of all the tickers
   tickers = (char**)malloc(sizeof(char*) * totalTickers);
-  GrabTickers(tickers, fp, totalTickers);
   setupPython();
+  GrabTickers(tickers, fp, totalTickers);
 
- // Create child processes
-   if ((pid[0] = fork()) == 0)
-   {
-   // Child process 1
-      pid[0] = getpid();
-      numTickers = totalTickers / NUM_PROCESSES;
-      double tickerArray_A[numTickers];
-      end = numTickers;
-      fillArrayWithPrices(tickerArray_A, numTickers, tickers, 0, end);
-      exit(0);
-    } // END CHILD 1
+  puts("Grabbing original prices");
+  double* originalPrices = (double*)malloc(sizeof(double) * totalTickers);
+  splitInto4(tickers, totalTickers, originalPrices);
 
-    else if ((pid[1] = fork()) == 0)
-    {
-    // Child process 2
-      pid[1] = getpid();
-      numTickers = totalTickers / NUM_PROCESSES;
-      if (totalTickers % NUM_PROCESSES == 3) { numTickers++; }
-      double tickerArray_B[numTickers];
-      start = totalTickers / NUM_PROCESSES;
-      end = start + numTickers;
-      fillArrayWithPrices(tickerArray_B, numTickers, tickers, start, end);
-      exit(0);
-    } // END CHILD 2
-
-    else if ((pid[2] = fork()) == 0)
-    {
-    // Child process 3
-      pid[2] = getpid();
-      numTickers = totalTickers / NUM_PROCESSES;
-
-      if (totalTickers % NUM_PROCESSES == 3)
-      {
-        start = totalTickers / NUM_PROCESSES * 2 + 1;
-        numTickers++;
-      }
-
-      else if (totalTickers % NUM_PROCESSES == 2)
-      {
-        start = totalTickers / NUM_PROCESSES * 2;
-        numTickers++;
-      }
-      else
-      {
-        start = totalTickers / NUM_PROCESSES * 2;
-      }
-
-      end = start + numTickers;
-      double tickerArray_C[numTickers];
-      fillArrayWithPrices(tickerArray_C, numTickers, tickers, start, end);
-      exit(0);
-    } // END CHILD 3
-
-    else if ((pid[3] = fork()) == 0)
-    {
-      // Child process 4
-      pid[3] = getpid();
-      numTickers = totalTickers / NUM_PROCESSES;
-      if (totalTickers % NUM_PROCESSES == 3)
-      {
-        start = numTickers * 3 + 2;
-        numTickers++;
-      }
-
-      else if (totalTickers % NUM_PROCESSES == 2)
-      {
-         start = numTickers * 3 + 1;
-         numTickers++;
-      }
-
-      else if (totalTickers % NUM_PROCESSES == 1)
-      {
-         start = numTickers * 3;
-         numTickers++;
-      }
-
-      else
-      {
-        start = numTickers * 3;
-      }
-
-      end = start + numTickers;
-      double tickerArray_D[numTickers];
-      fillArrayWithPrices(tickerArray_D, numTickers, tickers, start, end);
-      exit(0);
-    } // END CHILD 4
-
-    // Parent process
-      waitpid(pid[0], &status, 0);
-      waitpid(pid[1], &status, 0);
-      waitpid(pid[2], &status, 0);
-      waitpid(pid[3], &status, 0);
-
+  for (int i = 0; i < totalTickers; i++)
+  {
+    printf("%lf\n", originalPrices[i]);
+  }
 
  return 0;
 }
 
 /******************************************************************************
- *
+ * Sets up compatibility with Python functions
  */
 void setupPython(){
 
@@ -150,7 +47,7 @@ void setupPython(){
 }
 
 /******************************************************************************
- *
+ * Calls the python function from stock_functions.py to find the price of a ticker
  */
 void findPrice(char* symbol, char* result){
 
@@ -165,7 +62,7 @@ void findPrice(char* symbol, char* result){
 }
 
 /******************************************************************************
- *
+ * Grabs all of the tickers from a text file created by the python function
  */
 void GrabTickers(char** ticker_array, FILE* fp, int totalTickers){
 
@@ -179,20 +76,74 @@ void GrabTickers(char** ticker_array, FILE* fp, int totalTickers){
 }
 
 /******************************************************************************
- *
+ * Fills the array "tickerArray" with double type values of stock prices for
+ * each ticker in "tickers"
  */
 void fillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, int start, int end){
 
   char* ticker_result = (char*)malloc(sizeof(char) * TICKER_SIZE_HOLD);
+
   for (int i = start; i < end; i++)
   {
       findPrice(tickers[i], ticker_result);
+
       if (strcmp(ticker_result, "N/A") == 0)
-         printf("%s - Error\n", tickers[i]);
+      {
+        printf("%s - Error\n", tickers[i]);
+        tickerArray[i] = -1.00;
+      }
+
       else
       {
+         parseComma(ticker_result);
          sscanf(ticker_result, "%lf", &tickerArray[i]);
          printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
       }
   } // end for loop
+}
+
+/******************************************************************************
+ * Used to parse out the comma of stocks >= $1000
+ */
+void parseComma(char* ticker_result){
+
+   char* comma_string = (char*)malloc(sizeof(char) * TICKER_SIZE_HOLD);
+   char* return_string = (char*)malloc(sizeof(char) * TICKER_SIZE_HOLD);
+   comma_string = strchr(ticker_result, ',');
+
+   if (!comma_string) return;
+
+   else
+   {
+     memcpy(return_string, &ticker_result[0], 1);
+     memcpy(return_string+1, &comma_string[1], strlen(comma_string) - 1);
+     strcpy(ticker_result, return_string);
+   }
+}
+
+
+/******************************************************************************
+ * Compares the most recent prices with the original. Looking for a jump of 4%
+ * If one is found will send alert and call a python function that opens a web
+ * browser to a live chart of that stock
+ */
+void comparePrices(double** original, double** new){
+
+   double** diff = (double**)malloc(sizeof(double*) * 4);
+
+   for (int i = 0; i < 4; i++)
+   {
+     size_t elementsInList = sizeof(original[i]) / sizeof(double);
+     diff[i] = (double*)malloc(sizeof(double) * elementsInList);
+     for (int j = 0; j < elementsInList; j++)
+     {
+       if (original[i][j] != 0.00)
+       {
+         diff[i][j] = new[i][j] - original[i][j];
+         printf("%lf\n", diff[i][j]);
+       }
+
+     }
+   }
+
 }

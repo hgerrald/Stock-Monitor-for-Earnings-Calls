@@ -4,8 +4,8 @@ import HTMLParser
 import webbrowser
 import time
 
-tickers_list = []
 
+tickers_list = []
 
 # Get stock data
 def GrabStockPrice(symbol):
@@ -71,6 +71,3 @@ def GrabTradingViewTickers():
 
     ticker_file.close()
     return totalCount
-
-
-#GrabTradingViewTickers()

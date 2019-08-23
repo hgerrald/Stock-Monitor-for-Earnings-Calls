@@ -71,3 +71,10 @@ def GrabTradingViewTickers():
 
     ticker_file.close()
     return totalCount
+
+
+def OpenTicker(symbol):
+        webbrowser.register('chrome', None)
+        url = 'https://www.marketwatch.com/investing/stock/' + symbol
+        webbrowser.open_new(url)
+        time.sleep(1)

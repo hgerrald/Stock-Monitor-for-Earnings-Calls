@@ -1,10 +1,13 @@
 /*
  * Splits the workload into 4 processes
+ * Forks into 4 processes and uses pipes to transfer data
+ * Stock prices will be saved in "data_array"
+ * "tickers" is this list of string containing the stock tickers to track
  */
 
 #include "data_control.h"
 
-void splitInto4(char** tickers, int totalTickers, double* data_array){
+void SplitInto4(char** tickers, int totalTickers, double* data_array){
 
   int numTickers, status, start, end;
   int NUM_PROCESSES = 4;
@@ -45,10 +48,9 @@ void splitInto4(char** tickers, int totalTickers, double* data_array){
     // Child process 1
        pid[0] = getpid();
        numTickers = totalTickers / NUM_PROCESSES;
-    //   double tickerArray_A[numTickers];
        end = numTickers;
-       fillArrayWithPrices(data_array, numTickers, tickers, 0, end);
-       sendData(&fd1[0], numTickers, data_array, 0);
+       FillArrayWithPrices(data_array, numTickers, tickers, 0, end);
+       SendData(&fd1[0], numTickers, data_array, 0);
        exit(0);
      } // END CHILD 1
 
@@ -60,8 +62,8 @@ void splitInto4(char** tickers, int totalTickers, double* data_array){
        if (totalTickers % NUM_PROCESSES == 3) { numTickers++; }
        start = totalTickers / NUM_PROCESSES;
        end = start + numTickers;
-       fillArrayWithPrices(data_array, numTickers, tickers, start, end);
-       sendData(&fd2[0], numTickers, data_array, start);
+       FillArrayWithPrices(data_array, numTickers, tickers, start, end);
+       SendData(&fd2[0], numTickers, data_array, start);
        exit(0);
     } // END CHILD 2
 
@@ -88,8 +90,8 @@ void splitInto4(char** tickers, int totalTickers, double* data_array){
        }
 
        end = start + numTickers;
-       fillArrayWithPrices(data_array, numTickers, tickers, start, end);
-       sendData(&fd3[0], numTickers, data_array, start);
+       FillArrayWithPrices(data_array, numTickers, tickers, start, end);
+       SendData(&fd3[0], numTickers, data_array, start);
        exit(0);
      } // END CHILD 3
 
@@ -122,8 +124,8 @@ void splitInto4(char** tickers, int totalTickers, double* data_array){
        }
 
        end = start + numTickers;
-       fillArrayWithPrices(data_array, numTickers, tickers, start, end);
-       sendData(&fd4[0], numTickers, data_array, start);
+       FillArrayWithPrices(data_array, numTickers, tickers, start, end);
+       SendData(&fd4[0], numTickers, data_array, start);
        exit(0);
      } // END CHILD 4
 
@@ -133,19 +135,19 @@ void splitInto4(char** tickers, int totalTickers, double* data_array){
      waitpid(pid[2], &status, 0);
      waitpid(pid[3], &status, 0);
 
-     receiveData(&fd1[0], data_array);
-     receiveData(&fd2[0], data_array);
-     receiveData(&fd3[0], data_array);
-     receiveData(&fd4[0], data_array);
+     ReceiveData(&fd1[0], data_array);
+     ReceiveData(&fd2[0], data_array);
+     ReceiveData(&fd3[0], data_array);
+     ReceiveData(&fd4[0], data_array);
 
 
 }
 
 
 /******************************************************************************
- *
+ * Sends data through a pipe
  */
-void sendData(int *fd, int numTickers, double* tickerArray, int start){
+void SendData(int *fd, int numTickers, double* tickerArray, int start){
 
   // Send the number of tickers and the index in this process
    write(fd[1], &numTickers, sizeof(int));
@@ -158,9 +160,9 @@ void sendData(int *fd, int numTickers, double* tickerArray, int start){
 }
 
 /******************************************************************************
- *
+ * Receives data through a pipe
  */
-void receiveData(int *fd, double* data_array){
+void ReceiveData(int *fd, double* data_array){
 
   int numTickers, start;
 

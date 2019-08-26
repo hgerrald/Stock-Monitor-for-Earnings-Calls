@@ -1,10 +1,13 @@
 /*
- * Splits the work load into 2 processes
+ * Recursivley splits the work load into 2 processes
+ * Start and end are used to designate portions of the workload
+ * Count is used as the recursive variable, will stop calling itself when == 0
+ * Runs slower the process4 - needs work
  */
 
 #include "data_control.h"
 
-void SplitInto2(char** tickers, int totalTickers, double* data_array, int count, int start, int end){
+void SplitInHalf(char** tickers, int totalTickers, double* data_array, int count, int start, int end){
 
   pid_t pid;
   int status;
@@ -16,44 +19,45 @@ void SplitInto2(char** tickers, int totalTickers, double* data_array, int count,
      totalTickers_A = totalTickers / 2;
      totalTickers_B = totalTickers / 2;
      if (totalTickers % 2 == 1) totalTickers_B++;
-     SplitInto2(tickers, totalTickers_A, data_array, count-1, start, totalTickers_A);
-     SplitInto2(tickers, totalTickers_B, data_array, count-1, totalTickers_A+1, totalTickers);
+     SplitInHalf(tickers, totalTickers_A, data_array, count-1, start, totalTickers_A);
+     SplitInHalf(tickers, totalTickers_B, data_array, count-1, totalTickers_A+1, totalTickers);
   }
 
-// Open the pipe
-  if (pipe(fd1)==-1)
-  {
-      fprintf(stderr, "Pipe 1 Failed" );
-      return;
-  }
+  else{
+    // Open the pipe
+      if (pipe(fd1)==-1)
+      {
+          fprintf(stderr, "Pipe 1 Failed" );
+          return;
+      }
 
- // Create child processes
-   if ((pid = fork()) == 0)
-   {
-   // Child process 1
-      pid = getpid();
-      end = totalTickers / 2;
-      FillArrayWithPrices_P2(data_array, tickers, start, end);
-      SendDataP2(&fd1[0], data_array, start, end);
-      exit(0);
-  }
+     // Create child processes
+       if ((pid = fork()) == 0)
+       {
+       // Child process 1
+          pid = getpid();
+          end = totalTickers / 2;
+          FillArrayWithPrices_P2(data_array, tickers, start, end);
+          SendDataP2(&fd1[0], data_array, start, end);
+          exit(0);
+      }
 
-  else
-  {
-    // Parent process
-      start = totalTickers / 2;
-      FillArrayWithPrices_P2(data_array, tickers, start, end);
-      waitpid(pid, &status, 0);
-      ReceiveDataP2(&fd1[0], data_array);
-  }
+      else
+      {
+        // Parent process
+          start = totalTickers / 2;
+          FillArrayWithPrices_P2(data_array, tickers, start, end);
+          waitpid(pid, &status, 0);
+          ReceiveDataP2(&fd1[0], data_array);
+      }
 
+  }
 
 
 }
 
 
 void FillArrayWithPrices_P2(double* data_array, char** tickers, int start, int end){
-
 
   char* ticker_result = (char*)malloc(sizeof(char) * TICKER_SIZE_HOLD);
 
@@ -63,7 +67,7 @@ void FillArrayWithPrices_P2(double* data_array, char** tickers, int start, int e
 
       if (strcmp(ticker_result, "N/A") == 0)
       {
-      //  printf("%s - Error\n", tickers[i]);
+    //    printf("%s - Error\n", tickers[i]);
         data_array[i] = -1.00;
       }
 

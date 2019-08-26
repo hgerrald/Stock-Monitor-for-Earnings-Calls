@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 
 #define TICKER_SIZE_HOLD 15
 
@@ -21,7 +22,8 @@ void ComparePrices(double*, double*, int, char**);
 void SendData(int*, int, double*, int);
 void ReceiveData(int*, double*);
 void OpenChart(char*);
-void SplitInto2(char**, int, double*, int, int, int);
-void FillArrayWithPrices_P2(double*, char**, int, int);
-void SendDataP2(int*, double*, int, int);
-void ReceiveDataP2(int*, double*);
+
+// void SplitInHalf(char**, int, double*, int, int, int);
+// void FillArrayWithPrices_P2(double*, char**, int, int);
+// void SendDataP2(int*, double*, int, int);
+// void ReceiveDataP2(int*, double*);

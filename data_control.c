@@ -18,24 +18,22 @@ int main(int argc, char *argv[]){
  // Create a C object of all the tickers
   tickers = (char**)malloc(sizeof(char*) * totalTickers);
   SetupPython();
-//  CallPythonGrabTickers();
+  CallPythonGrabTickers();
   GrabTickersFromFile(tickers, fp, totalTickers);
 
   puts("Grabbing original prices");
   double* originalPrices = (double*)malloc(sizeof(double) * totalTickers);
-  SplitInto2(tickers, totalTickers, originalPrices, 2, 0, totalTickers);
+  SplitInto4(tickers, totalTickers, originalPrices);
 
-  for (int i = 0; i < totalTickers; i++)
-     printf("%s - %.4lf\n", tickers[i], originalPrices[i]);
+// Continue to check from large price changes until user quits
+  double* newPrices = (double*)malloc(sizeof(double) * totalTickers);
+  while (1){
+      puts("Grabbing new prices");
+      SplitInto4(tickers, totalTickers, newPrices);
+      ComparePrices(originalPrices, newPrices, totalTickers, tickers);
+      //sleep(10);
+  }
 
-// Continue to check from large price increases until user quits
-  // double* newPrices = (double*)malloc(sizeof(double) * totalTickers);
-  // while (1){
-  //   puts("Getting new prices");
-  //   sleep(10);
-  //   SplitInto2(tickers, totalTickers, originalPrices, 1);
-  //   ComparePrices(originalPrices, newPrices, totalTickers, tickers);
-  // }
 
  return 0;
 }
@@ -80,7 +78,7 @@ void GrabTickersFromFile(char** ticker_array, FILE* fp, int totalTickers){
     memset(ticker_array[i], '\0', TICKER_SIZE_HOLD);
     fscanf(fp, "%s", ticker_array[i]);
   }
-  printf("Successfully grabbed %d tickers\n", totalTickers);
+  printf("Successfully transfered %d tickers into C\n", totalTickers);
 }
 
 /******************************************************************************
@@ -97,7 +95,7 @@ void FillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, in
 
       if (strcmp(ticker_result, "N/A") == 0)
       {
-        printf("%s - Error\n", tickers[i]);
+    //    printf("%s - Error\n", tickers[i]);
         tickerArray[i] = -1.00;
       }
 
@@ -105,9 +103,11 @@ void FillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, in
       {
          ParseComma(ticker_result);
          sscanf(ticker_result, "%lf", &tickerArray[i]);
-         printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
+    //     printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
       }
   } // end for loop
+
+  free(ticker_result);
 }
 
 /******************************************************************************
@@ -146,7 +146,8 @@ void ComparePrices(double* original, double* new, int totalTickers, char** ticke
       difference = new[i] - original[i];
       percent_change = new[i] / original[i];
 
-      if (percent_change > 1.035){ // 3.5%
+    // Falls by 4%
+      if (percent_change < 0.96){
         printf("Difference for %s is %lf\n", tickers[i], difference);
         printf("   Percent change is %.2lf\n", percent_change);
       //  OpenChart(tickers[i]);
@@ -181,7 +182,7 @@ void CallPythonGrabTickers(){
   PyObject* myModuleString = PyString_FromString((char*)"stock_functions");
   PyObject* myModule = PyImport_Import(myModuleString);
 
-  PyObject* myFunction = PyObject_GetAttrString(myModule,(char*)"GrabTradingViewTickers");
+  PyObject* myFunction = PyObject_GetAttrString(myModule,(char*)"FindStocksWithEarningsCalls");
 //  PyObject* args = PyTuple_Pack(1,PyString_FromString(symbol));
   PyObject_CallObject(myFunction, NULL);
 }

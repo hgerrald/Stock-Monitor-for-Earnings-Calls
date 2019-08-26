@@ -7,7 +7,7 @@ import time
 
 tickers_list = []
 
-# Get stock data
+# Finds the stock price of a given ticker. Takes a while to run...
 def GrabStockPrice(symbol):
     try:
         stock_url = 'https://www.marketwatch.com/investing/stock/' + symbol
@@ -35,18 +35,17 @@ def GrabStockPrice(symbol):
     return stock_price
 
 
-# Find tickers using the TradingView info
+# Find all tickers with earnings calls today from the TradingView website
 def GrabTradingViewTickers():
     # Web page to open tradingview link
     webbrowser.register('chrome', None)
-    webbrowser.open_new('https://www.tradingview.com/markets/stocks-usa/earnings/')
+#    webbrowser.open_new('https://www.tradingview.com/markets/stocks-usa/earnings/')
     time.sleep(1)
     response = raw_input("\nDid you load all tickers and save the page as \"earnings.html\" in the same directory as this program? [y]/[n]:  ")
 
     if response != 'y':
         sys.exit("Can't listen to instructions? Right click and save as!")
 
-    ticker_file = open("tickers.txt", 'w')
     f = open("earnings.html", 'r')
     tradingview_data = f.read()
     f.close()
@@ -55,7 +54,6 @@ def GrabTradingViewTickers():
     totalCount_start = tradingview_data.find("totalCount")
     totalCount_end = tradingview_data.find(",", totalCount_start)
     totalCount = int(tradingview_data[totalCount_start+13: totalCount_end])
-    ticker_file.write("%d\n" % (totalCount))
 
     # Find the stock tickers
     search_for = "table__result-row\" data-symbol"
@@ -66,15 +64,86 @@ def GrabTradingViewTickers():
         stock_end = tradingview_data.find("\">", stock_start)
         stock = tradingview_data[stock_start+1: stock_end]
         tickers_list.append(stock)
-        ticker_file.write(stock)
-        ticker_file.write("\n")
 
-    ticker_file.close()
+    print "Successfully grabbed %d tickers from TradingView" %(totalCount)
     return totalCount
 
 
+# Open the live chart of a given stock ticker
 def OpenTicker(symbol):
         webbrowser.register('chrome', None)
         url = 'https://www.marketwatch.com/investing/stock/' + symbol
         webbrowser.open_new(url)
         time.sleep(1)
+
+
+# Grabs all of the tickers with earnings call today from Yahoo
+def GrabStockTickersYahoo():
+    url = 'https://finance.yahoo.com/calendar/earnings'
+    html = urllib.urlopen(url)
+    data_soup = BeautifulSoup(html, 'html.parser')
+    string_soup = str(data_soup)
+
+    # Begin to parse data, find number of tickets to watch
+    num_tickers_start = string_soup.find('<span data-reactid=\"8\">1-')
+    of_string = string_soup.find("of", num_tickers_start)
+    results_string = string_soup.find("results", num_tickers_start)
+    tickers_substring = string_soup[of_string+3: results_string]
+    num_tickers = int(tickers_substring)
+    duplicate_count = 0
+
+    # Collect all of the ticker names
+    duplicate_count -= GrabTickers(url)
+    if num_tickers > 100:
+        url_100 = url + '?offset=100&size=100'
+        duplicate_count -= GrabTickers(url_100)
+    if num_tickers > 200:
+        url_200 = url + '?offset=200&size=100'
+        duplicate_count -= GrabTickers(url_200)
+    if num_tickers > 300:
+        url_300 = url + '?offset=300&size=100'
+        duplicate_count -= GrabTickers(url_300)
+    if num_tickers > 400:
+        url_400 = url + '?offset=400&size=100'
+        duplicate_count -= GrabTickers(url_400)
+
+    print "Successfully grabbed %d tickers from Yahoo" %(num_tickers + duplicate_count)
+    return num_tickers + duplicate_count
+
+
+
+# Find all tickers using {"ticker":" --- Helper function for finding Yahoo tickers
+def GrabTickers(url):
+    dup_count = 0
+    html = urllib.urlopen(url)
+    data_soup = BeautifulSoup(html, 'html.parser')
+    string_soup = str(data_soup)
+    start_index = string_soup.find('results\":{\"rows\":[{\"ticker')
+    data_to_parse = string_soup[start_index: len(string_soup)]
+    while "{\"ticker\":\"" in data_to_parse:
+        ticker_start = data_to_parse.find("\"ticker\":\"")
+        data_to_parse = data_to_parse[ticker_start+10: len(data_to_parse)]
+        ticker_end = data_to_parse.find("\"")
+        ticker = data_to_parse[0: ticker_end]
+        flag = 0
+        for i in tickers_list:
+          if ticker == i:
+            flag = 1
+            dup_count = dup_count + 1
+        if flag == 0:
+          tickers_list.append(ticker)
+    return dup_count
+
+
+def FindStocksWithEarningsCalls():
+    newfile = open("tickers.txt", "w+")
+    num_tradingview = GrabTradingViewTickers()
+    num_yahoo = GrabStockTickersYahoo()
+    totalTickers = num_tradingview + num_yahoo
+    newfile.write("%d\n" % (totalTickers))
+    for i in tickers_list:
+        newfile.write(i)
+        newfile.write("\n")
+    newfile.close()
+
+    print "Successfully grabbed %d total tickers (took out duplicates)" %(totalTickers)

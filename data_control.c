@@ -4,6 +4,8 @@
 
 #include "data_control.h"
 
+int *alreadyOpened;
+
 int main(int argc, char *argv[]){
 
  // Declare variables
@@ -11,14 +13,16 @@ int main(int argc, char *argv[]){
   FILE* fp;
   char** tickers;
 
+  SetupPython();
+  CallPythonGrabTickers();
+
 // Grab how many tickers we are going to watch
   fp = fopen("tickers.txt", "r");
   fscanf(fp, "%d", &totalTickers);
 
  // Create a C object of all the tickers
   tickers = (char**)malloc(sizeof(char*) * totalTickers);
-  SetupPython();
-  CallPythonGrabTickers();
+  alreadyOpened = (int*)calloc(totalTickers, sizeof(int));
   GrabTickersFromFile(tickers, fp, totalTickers);
 
   puts("Grabbing original prices");
@@ -146,11 +150,15 @@ void ComparePrices(double* original, double* new, int totalTickers, char** ticke
       difference = new[i] - original[i];
       percent_change = new[i] / original[i];
 
-    // Falls by 4%
-      if (percent_change < 0.96){
+    // Increases or decreases by 4%
+      if (percent_change < 0.96 || percent_change > 1.04){
         printf("Difference for %s is %lf\n", tickers[i], difference);
         printf("   Percent change is %.2lf\n", percent_change);
-      //  OpenChart(tickers[i]);
+        if (alreadyOpened[i] == 0){
+          OpenChart(tickers[i]);
+          alreadyOpened[i] = 1;
+        }
+
       }
 
     }

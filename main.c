@@ -4,7 +4,7 @@
 
 #include "main.h"
 
-#define NUM_THREADS 16
+#define NUM_THREADS 8
 // NUM_THREADS should be a power of 2: 2,4,8,16,32...
 
 // GLOBAL VARIABLES
@@ -21,10 +21,12 @@ double* new_prices;
 int main(int argc, char *argv[])
 {
   FILE* fp;
+  time_t start_time, end_time;
+
 
   SetupPython();
-  //CallPythonGrabTickers(); // Grabs tickers with earnings calls today,
-                             // stores in file "tickers.txt"
+// Grab tickers with earnings calls today and store in "tickers.txt"
+  //CallPythonGrabTickers();
 
 // Grab how many tickers we are watching from the file
   fp = fopen("tickers.txt", "r");
@@ -39,6 +41,8 @@ int main(int argc, char *argv[])
   puts("GRABBING ORIGINAL PRICES");
   original_prices = (double*)malloc(sizeof(double) * totalTickers);
   main_thread = pthread_self();
+  start_time = time(NULL);
+
   for (int i = 0; i < NUM_THREADS; i++)
   {
     cond_variables[i] = 1;
@@ -46,8 +50,12 @@ int main(int argc, char *argv[])
   }
 
 // wait for all threads to complete
-   for (int i = 0; i < NUM_THREADS; i++)
-        while (cond_variables[i] == 1);
+  for (int i = 0; i < NUM_THREADS; i++)
+      while (cond_variables[i] == 1);
+
+// print the time it took to complete
+  end_time = time(NULL);
+  printf("Time elapsed = %ld seconds\n", end_time - start_time);
 
 
 // Continue to check for large price changes until user quits
@@ -55,6 +63,7 @@ int main(int argc, char *argv[])
   while (1)
   {
     puts("GRABBING NEW PRICES");
+    start_time = time(NULL);
     for (int i = 0; i < NUM_THREADS; i++)
       cond_variables[i] = 1;
 
@@ -62,6 +71,8 @@ int main(int argc, char *argv[])
         while (cond_variables[i] == 1);
 
     ComparePrices(original_prices, new_prices);
+    end_time = time(NULL);
+    printf("Time elapsed = %ld seconds\n", end_time - start_time);
   }
 
 
@@ -72,7 +83,7 @@ int main(int argc, char *argv[])
 
 
 /******************************************************************************
- * Distribute the workload for 2 threads
+ * Distribute the workload between NUM_THREADS threads
  */
 void *start_scan(void *vargp)
 {

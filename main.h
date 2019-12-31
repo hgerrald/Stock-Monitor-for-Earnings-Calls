@@ -22,7 +22,7 @@ void ComparePrices(double*, double*);
 void SendData(int*, int, double*, int);
 void ReceiveData(int*, double*);
 void OpenChart(char*);
-void *start_scan(void *vargp);
+void *start_scan(void *);
 
 // void SplitInHalf(char**, int, double*, int, int, int);
 // void FillArrayWithPrices_P2(double*, char**, int, int);

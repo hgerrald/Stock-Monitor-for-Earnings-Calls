@@ -13,6 +13,9 @@ int *alreadyOpened; // Does not open a ticker chart twice
 int totalTickers;
 pthread_t thread_id[NUM_THREADS];
 pthread_t main_thread;
+int cond_variables[NUM_THREADS];
+double *original_prices;
+double* new_prices;
 
 
 int main(int argc, char *argv[])
@@ -33,26 +36,30 @@ int main(int argc, char *argv[])
   GrabTickersFromFile(tickers, fp, totalTickers);
 
  // Grab the original prices, create threads so distribute work load
-  puts("Grabbing original prices");
-  double *original_prices = (double*)malloc(sizeof(double) * totalTickers);
+  puts("GRABBING ORIGINAL PRICES");
+  original_prices = (double*)malloc(sizeof(double) * totalTickers);
   main_thread = pthread_self();
-  start_scan((void*)original_prices);
-
-
-  sleep(2); // wait for all threads to spawn
   for (int i = 0; i < NUM_THREADS; i++)
-    pthread_join(thread_id[i], NULL);
+  {
+    cond_variables[i] = 1;
+    pthread_create(&thread_id[i], NULL, start_scan, original_prices);
+  }
+
+// wait for all threads to complete
+   for (int i = 0; i < NUM_THREADS; i++)
+        while (cond_variables[i] == 1);
 
 
 // Continue to check for large price changes until user quits
-  double* new_prices = (double*)malloc(sizeof(double) * totalTickers);
+  new_prices = (double*)malloc(sizeof(double) * totalTickers);
   while (1)
   {
-    puts("here");
-    start_scan((void*)new_prices);
-    sleep(2); // wait for all threads to spawn
+    puts("GRABBING NEW PRICES");
     for (int i = 0; i < NUM_THREADS; i++)
-      pthread_join(thread_id[i], NULL);
+      cond_variables[i] = 1;
+
+    for (int i = 0; i < NUM_THREADS; i++) // wait for threads to complete
+        while (cond_variables[i] == 1);
 
     ComparePrices(original_prices, new_prices);
   }
@@ -72,25 +79,15 @@ void *start_scan(void *vargp)
    PyGILState_STATE gstate;
    gstate = PyGILState_Ensure();
 
+
    int x, start, end, numTickers;
    double* prices = vargp;
 
   // Find which thread this is (the value of x)
-   if (pthread_self() == main_thread)
-   {
-     pthread_create(&thread_id[0], NULL, start_scan, vargp);
-     return NULL;
-   }
-
    x = 0;
-   do {x++;}
-   while (pthread_self() != thread_id[x-1] && x < NUM_THREADS);
+   while (pthread_self() != thread_id[x] && x < NUM_THREADS)
+      x++;
 
-   if (x < NUM_THREADS)
-       pthread_create(&thread_id[x], NULL, start_scan, vargp);
-
-
-   x--;
    if (x == 0) start = 0;
    else
    {
@@ -110,7 +107,12 @@ void *start_scan(void *vargp)
 
    FillArrayWithPrices(prices, numTickers, tickers, start, end);
 
+   cond_variables[x] = 0;
+
    PyGILState_Release(gstate);
+
+   while (cond_variables[x] == 0);
+   start_scan(new_prices);
 
    return NULL;
 }
@@ -182,7 +184,7 @@ void FillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, in
       {
          ParseComma(ticker_result);
          sscanf(ticker_result, "%lf", &tickerArray[i]);
-         printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
+      //   printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
     }
 
   } // end for loop
@@ -225,6 +227,8 @@ void ComparePrices(double* original, double* new){
     if (original[i] != -1.00){
       difference = new[i] - original[i];
       percent_change = new[i] / original[i];
+
+  //    printf("Difference for %s is %lf\n", tickers[i], difference);
 
     // Increases by 4%
       if (percent_change >= 1.04){

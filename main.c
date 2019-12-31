@@ -4,7 +4,8 @@
 
 #include "main.h"
 
-#define NUM_THREADS 2
+#define NUM_THREADS 16
+// NUM_THREADS should be a power of 2: 2,4,8,16,32...
 
 // GLOBAL VARIABLES
 char** tickers; // Stores the strings of each ticker
@@ -37,14 +38,13 @@ int main(int argc, char *argv[])
   start_scan((void*)originalPrices);
 
 
-
+  //sleep(3);
   for (int i = 0; i < NUM_THREADS; i++)
     pthread_join(thread_id[i], NULL);
 
 
-
 // Continue to check for large price changes until user quits
-//  double* new_prices = (double*)malloc(sizeof(double) * totalTickers);
+  double* new_prices = (double*)malloc(sizeof(double) * totalTickers);
 
 
 
@@ -58,6 +58,9 @@ int main(int argc, char *argv[])
  */
 void *start_scan(void *vargp)
 {
+   PyGILState_STATE gstate;
+   gstate = PyGILState_Ensure();
+
    int x, start, end, numTickers;
    double* prices = vargp;
 
@@ -75,27 +78,30 @@ void *start_scan(void *vargp)
    if (x < NUM_THREADS)
        pthread_create(&thread_id[x], NULL, start_scan, vargp);
 
-   PyGILState_STATE gstate;
-   gstate = PyGILState_Ensure();
 
    x--;
-   start = x * totalTickers / NUM_THREADS + (totalTickers % 2);
-   if (x == 0 && totalTickers % 2 == 1)
-     start--;
+   if (x == 0) start = 0;
+   else
+   {
+     start = x * totalTickers / NUM_THREADS;
+     if (x < totalTickers / NUM_THREADS)
+       start++;
+   }
+
 
    end = (x+1) * totalTickers / NUM_THREADS - 1;
-   if (x == 0 && totalTickers % 2 == 1)
+   if (x+1 != NUM_THREADS && totalTickers % NUM_THREADS != 0)
      end++;
 
    numTickers = end - start + 1;
-   x++;
 
+   printf("x = %d, start = %d, end = %d\n", x, start, end);
 
    FillArrayWithPrices(prices, numTickers, tickers, start, end);
 
    PyGILState_Release(gstate);
 
-  return NULL;
+   return NULL;
 }
 
 /******************************************************************************

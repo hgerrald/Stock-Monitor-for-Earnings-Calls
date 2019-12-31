@@ -11,6 +11,7 @@ char** tickers; // Stores the strings of each ticker
 int *alreadyOpened; // Does not open a ticker chart twice
 int totalTickers;
 pthread_t thread_id[NUM_THREADS];
+pthread_t main_thread;
 
 
 int main(int argc, char *argv[])
@@ -32,8 +33,10 @@ int main(int argc, char *argv[])
  // Grab the original prices, create threads so distribute work load
   puts("Grabbing original prices");
   double *originalPrices = (double*)malloc(sizeof(double) * totalTickers);
-  for (int i = 0; i < NUM_THREADS; i++)
-    pthread_create(&thread_id[i], NULL, start_scan, (void*)originalPrices);
+  main_thread = pthread_self();
+  start_scan((void*)originalPrices);
+
+
 
   for (int i = 0; i < NUM_THREADS; i++)
     pthread_join(thread_id[i], NULL);
@@ -55,17 +58,27 @@ int main(int argc, char *argv[])
  */
 void *start_scan(void *vargp)
 {
-   PyGILState_STATE gstate;
-   gstate = PyGILState_Ensure();
-
    int x, start, end, numTickers;
    double* prices = vargp;
 
   // Find which thread this is (the value of x)
-   x = 0;
-   while (pthread_self() != thread_id[x])
-     x++;  
+   if (pthread_self() == main_thread)
+   {
+     pthread_create(&thread_id[0], NULL, start_scan, vargp);
+     return NULL;
+   }
 
+    x = 0;
+    do {x++;}
+    while (pthread_self() != thread_id[x-1] && x < NUM_THREADS);
+
+   if (x < NUM_THREADS)
+       pthread_create(&thread_id[x], NULL, start_scan, vargp);
+
+   PyGILState_STATE gstate;
+   gstate = PyGILState_Ensure();
+
+   x--;
    start = x * totalTickers / NUM_THREADS + (totalTickers % 2);
    if (x == 0 && totalTickers % 2 == 1)
      start--;

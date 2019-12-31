@@ -39,7 +39,7 @@ def GrabStockPrice(symbol):
 def GrabTradingViewTickers():
     # Web page to open tradingview link
     webbrowser.register('chrome', None)
-    webbrowser.open_new('https://www.tradingview.com/markets/stocks-usa/earnings/')
+    #webbrowser.open_new('https://www.tradingview.com/markets/stocks-usa/earnings/')
     time.sleep(1)
     response = raw_input("\nDid you load all tickers and save the page as \"earnings.html\" in the same directory as this program? [y]/[n]:  ")
 

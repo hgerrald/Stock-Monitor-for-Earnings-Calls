@@ -2,44 +2,87 @@
  * Created by Heath Gerrald
  */
 
-#include "data_control.h"
+#include "main.h"
 
-int *alreadyOpened;
+#define NUM_THREADS 2
 
-int main(int argc, char *argv[]){
+// GLOBAL VARIABLES
+char** tickers; // Stores the strings of each ticker
+int *alreadyOpened; // Does not open a ticker chart twice
+int totalTickers;
+pthread_t thread_id[NUM_THREADS];
 
- // Declare variables
-  int totalTickers;
+
+int main(int argc, char *argv[])
+{
   FILE* fp;
-  char** tickers;
 
   SetupPython();
-  CallPythonGrabTickers();
+  //CallPythonGrabTickers();
 
-// Grab how many tickers we are going to watch
+// Grab how many tickers we are watching from the file
   fp = fopen("tickers.txt", "r");
   fscanf(fp, "%d", &totalTickers);
 
- // Create a C object of all the tickers
+ // Create a C object to store the tickers
   tickers = (char**)malloc(sizeof(char*) * totalTickers);
   alreadyOpened = (int*)calloc(totalTickers, sizeof(int));
   GrabTickersFromFile(tickers, fp, totalTickers);
 
+ // Grab the original prices, create threads so distribute work load
   puts("Grabbing original prices");
-  double* originalPrices = (double*)malloc(sizeof(double) * totalTickers);
-  SplitInto4(tickers, totalTickers, originalPrices);
+  double *originalPrices = (double*)malloc(sizeof(double) * totalTickers);
+  for (int i = 0; i < NUM_THREADS; i++)
+    pthread_create(&thread_id[i], NULL, start_scan, (void*)originalPrices);
 
-// Continue to check from large price changes until user quits
-  double* newPrices = (double*)malloc(sizeof(double) * totalTickers);
-  while (1){
-      puts("Grabbing new prices");
-      SplitInto4(tickers, totalTickers, newPrices);
-      ComparePrices(originalPrices, newPrices, totalTickers, tickers);
-      //sleep(10);
-  }
+  for (int i = 0; i < NUM_THREADS; i++)
+    pthread_join(thread_id[i], NULL);
+
+
+
+// Continue to check for large price changes until user quits
+//  double* new_prices = (double*)malloc(sizeof(double) * totalTickers);
+
+
 
 
  return 0;
+}
+
+
+/******************************************************************************
+ * Distribute the workload for 2 threads
+ */
+void *start_scan(void *vargp)
+{
+   PyGILState_STATE gstate;
+   gstate = PyGILState_Ensure();
+
+   int x, start, end, numTickers;
+   double* prices = vargp;
+
+  // Find which thread this is (the value of x)
+   x = 0;
+   while (pthread_self() != thread_id[x])
+     x++;  
+
+   start = x * totalTickers / NUM_THREADS + (totalTickers % 2);
+   if (x == 0 && totalTickers % 2 == 1)
+     start--;
+
+   end = (x+1) * totalTickers / NUM_THREADS - 1;
+   if (x == 0 && totalTickers % 2 == 1)
+     end++;
+
+   numTickers = end - start + 1;
+   x++;
+
+
+   FillArrayWithPrices(prices, numTickers, tickers, start, end);
+
+   PyGILState_Release(gstate);
+
+  return NULL;
 }
 
 /******************************************************************************
@@ -48,6 +91,8 @@ int main(int argc, char *argv[]){
 void SetupPython(){
 
   Py_Initialize();
+  PyEval_InitThreads();
+  PyEval_ReleaseLock();
   PyObject *sysmodule = PyImport_ImportModule("sys");
   PyObject *syspath = PyObject_GetAttrString(sysmodule, "path");
   PyList_Append(syspath, PyString_FromString("."));
@@ -89,17 +134,17 @@ void GrabTickersFromFile(char** ticker_array, FILE* fp, int totalTickers){
  * Fills the array "tickerArray" with double type values of stock prices for
  * each ticker in "tickers"
  */
-void FillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, int start, int end){
-
+void FillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, int start, int end)
+{
   char* ticker_result = (char*)malloc(sizeof(char) * TICKER_SIZE_HOLD);
 
-  for (int i = start; i < end; i++)
+  for (int i = start; i <= end; i++)
   {
       FindPrice(tickers[i], ticker_result);
 
       if (strcmp(ticker_result, "N/A") == 0)
       {
-    //    printf("%s - Error\n", tickers[i]);
+      //  printf("%s - Error\n", tickers[i]);
         tickerArray[i] = -1.00;
       }
 
@@ -107,11 +152,13 @@ void FillArrayWithPrices(double* tickerArray, int numTickers, char** tickers, in
       {
          ParseComma(ticker_result);
          sscanf(ticker_result, "%lf", &tickerArray[i]);
-    //     printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
-      }
+         printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
+    }
+
   } // end for loop
 
   free(ticker_result);
+
 }
 
 /******************************************************************************
@@ -145,13 +192,12 @@ void ComparePrices(double* original, double* new, int totalTickers, char** ticke
   double percent_change = 0.00;
 
   for (int i = 0; i < totalTickers; i++)
-  {
     if (original[i] != -1.00){
       difference = new[i] - original[i];
       percent_change = new[i] / original[i];
 
-    // Increases or decreases by 4%
-      if (percent_change < 0.96 || percent_change > 1.04){
+    // Increases by 4%
+      if (percent_change >= 1.04){
         printf("Difference for %s is %lf\n", tickers[i], difference);
         printf("   Percent change is %.2lf\n", percent_change);
         if (alreadyOpened[i] == 0){
@@ -163,7 +209,7 @@ void ComparePrices(double* original, double* new, int totalTickers, char** ticke
 
     }
 
-  }
+
 
 }
 

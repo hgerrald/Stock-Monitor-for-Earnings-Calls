@@ -16,7 +16,7 @@ void FindPrice();
 void CallPythonGrabTickers();
 void GrabTickersFromFile(char**, FILE*, int);
 void FillArrayWithPrices(double*, int, char**, int, int);
-void SplitInto4(char**, int, double*);
+void SplitIntoProcesses(char**, int, double*);
 void ParseComma(char*);
 void ComparePrices(double*, double*);
 void SendData(int*, int, double*, int);
@@ -28,5 +28,4 @@ void *start_scan(void *);
 // void FillArrayWithPrices_P2(double*, char**, int, int);
 // void SendDataP2(int*, double*, int, int);
 // void ReceiveDataP2(int*, double*);
-
-void isolated_fork(char** tickers, int totalTickers, double* originalPrices, double*);
+//void isolated_fork(char** tickers, int totalTickers, double* originalPrices, double*);

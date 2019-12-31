@@ -40,42 +40,48 @@ int main(int argc, char *argv[])
  // Grab the original prices, create threads so distribute work load
   puts("GRABBING ORIGINAL PRICES");
   original_prices = (double*)malloc(sizeof(double) * totalTickers);
-  main_thread = pthread_self();
   start_time = time(NULL);
 
-  for (int i = 0; i < NUM_THREADS; i++)
-  {
-    cond_variables[i] = 1;
-    pthread_create(&thread_id[i], NULL, start_scan, original_prices);
-  }
 
-// wait for all threads to complete
-  for (int i = 0; i < NUM_THREADS; i++)
-      while (cond_variables[i] == 1);
-
+  SplitIntoProcesses(tickers, totalTickers, original_prices);
+  
 // print the time it took to complete
   end_time = time(NULL);
   printf("Time elapsed = %ld seconds\n", end_time - start_time);
 
-
-// Continue to check for large price changes until user quits
-  new_prices = (double*)malloc(sizeof(double) * totalTickers);
-  while (1)
-  {
-    puts("GRABBING NEW PRICES");
-    start_time = time(NULL);
-    for (int i = 0; i < NUM_THREADS; i++)
-      cond_variables[i] = 1;
-
-    for (int i = 0; i < NUM_THREADS; i++) // wait for threads to complete
-        while (cond_variables[i] == 1);
-
-    ComparePrices(original_prices, new_prices);
-    end_time = time(NULL);
-    printf("Time elapsed = %ld seconds\n", end_time - start_time);
-  }
-
-
+// Everything below here is for using threads
+//   main_thread = pthread_self();
+//   for (int i = 0; i < NUM_THREADS; i++)
+//   {
+//     cond_variables[i] = 1;
+//     pthread_create(&thread_id[i], NULL, start_scan, original_prices);
+//   }
+//
+// // wait for all threads to complete
+//   for (int i = 0; i < NUM_THREADS; i++)
+//       while (cond_variables[i] == 1);
+//
+// // print the time it took to complete
+//   end_time = time(NULL);
+//   printf("Time elapsed = %ld seconds\n", end_time - start_time);
+//
+//
+// // Continue to check for large price changes until user quits
+//   new_prices = (double*)malloc(sizeof(double) * totalTickers);
+//   while (1)
+//   {
+//     puts("GRABBING NEW PRICES");
+//     start_time = time(NULL);
+//     for (int i = 0; i < NUM_THREADS; i++)
+//       cond_variables[i] = 1;
+//
+//     for (int i = 0; i < NUM_THREADS; i++) // wait for threads to complete
+//         while (cond_variables[i] == 1);
+//
+//     ComparePrices(original_prices, new_prices);
+//     end_time = time(NULL);
+//     printf("Time elapsed = %ld seconds\n", end_time - start_time);
+//   }
 
 
  return 0;
@@ -235,27 +241,30 @@ void ComparePrices(double* original, double* new){
   double percent_change = 0.00;
 
   for (int i = 0; i < totalTickers; i++)
-    if (original[i] != -1.00){
+    if (original[i] != -1.00)
+    {
       difference = new[i] - original[i];
-      percent_change = new[i] / original[i];
+      percent_change = 100 * (new[i] / original[i]) - 100;
 
   //    printf("Difference for %s is %lf\n", tickers[i], difference);
+  //    printf("   Percent change is %.2lf%%\n", percent_change);
 
-    // Increases by 4%
-      if (percent_change >= 1.04){
+    // Increases by 3.5%
+      if (percent_change >= 3.5)
+      {
         printf("Difference for %s is %lf\n", tickers[i], difference);
         printf("   Percent change is %.2lf\n", percent_change);
-        if (alreadyOpened[i] == 0){
+        if (alreadyOpened[i] == 0)
+        {
+          PyGILState_STATE bstate;
+          bstate = PyGILState_Ensure();
           OpenChart(tickers[i]);
           alreadyOpened[i] = 1;
+          PyGILState_Release(bstate);
         }
-
       }
 
     }
-
-
-
 }
 
 /******************************************************************************

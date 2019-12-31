@@ -18,7 +18,7 @@ void GrabTickersFromFile(char**, FILE*, int);
 void FillArrayWithPrices(double*, int, char**, int, int);
 void SplitInto4(char**, int, double*);
 void ParseComma(char*);
-void ComparePrices(double*, double*, int, char**);
+void ComparePrices(double*, double*);
 void SendData(int*, int, double*, int);
 void ReceiveData(int*, double*);
 void OpenChart(char*);

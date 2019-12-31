@@ -20,7 +20,8 @@ int main(int argc, char *argv[])
   FILE* fp;
 
   SetupPython();
-  //CallPythonGrabTickers();
+  //CallPythonGrabTickers(); // Grabs tickers with earnings calls today,
+                             // stores in file "tickers.txt"
 
 // Grab how many tickers we are watching from the file
   fp = fopen("tickers.txt", "r");
@@ -33,18 +34,28 @@ int main(int argc, char *argv[])
 
  // Grab the original prices, create threads so distribute work load
   puts("Grabbing original prices");
-  double *originalPrices = (double*)malloc(sizeof(double) * totalTickers);
+  double *original_prices = (double*)malloc(sizeof(double) * totalTickers);
   main_thread = pthread_self();
-  start_scan((void*)originalPrices);
+  start_scan((void*)original_prices);
 
 
-  //sleep(3);
+  sleep(2); // wait for all threads to spawn
   for (int i = 0; i < NUM_THREADS; i++)
     pthread_join(thread_id[i], NULL);
 
 
 // Continue to check for large price changes until user quits
   double* new_prices = (double*)malloc(sizeof(double) * totalTickers);
+  while (1)
+  {
+    puts("here");
+    start_scan((void*)new_prices);
+    sleep(2); // wait for all threads to spawn
+    for (int i = 0; i < NUM_THREADS; i++)
+      pthread_join(thread_id[i], NULL);
+
+    ComparePrices(original_prices, new_prices);
+  }
 
 
 
@@ -71,9 +82,9 @@ void *start_scan(void *vargp)
      return NULL;
    }
 
-    x = 0;
-    do {x++;}
-    while (pthread_self() != thread_id[x-1] && x < NUM_THREADS);
+   x = 0;
+   do {x++;}
+   while (pthread_self() != thread_id[x-1] && x < NUM_THREADS);
 
    if (x < NUM_THREADS)
        pthread_create(&thread_id[x], NULL, start_scan, vargp);
@@ -95,7 +106,7 @@ void *start_scan(void *vargp)
 
    numTickers = end - start + 1;
 
-   printf("x = %d, start = %d, end = %d\n", x, start, end);
+  // printf("x = %d, start = %d, end = %d\n", x, start, end);
 
    FillArrayWithPrices(prices, numTickers, tickers, start, end);
 
@@ -205,7 +216,7 @@ void ParseComma(char* ticker_result){
  * If one is found will send alert and call a python function that opens a web
  * browser to a live chart of that stock
  */
-void ComparePrices(double* original, double* new, int totalTickers, char** tickers){
+void ComparePrices(double* original, double* new){
 
   double difference = 0.00;
   double percent_change = 0.00;

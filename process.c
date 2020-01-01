@@ -7,6 +7,7 @@
 
 #include "main.h"
 
+// GLOBAL VARIABLES
 extern double *new_prices;
 extern double *original_prices;
 extern char **tickers;
@@ -21,16 +22,13 @@ int **fd;
  * the first go around
  * Continuously waits for a signal and finds/sends prices once triggered
  */
-void GetNewPrices(double* prices, int numTickers, int start, int end)
+void GetNewPricesProcesses(int *start, int *end, int i)
 {
    while(1)
    {
-     for (int i = 0; i < NUM_PROCESSES; i++)
-     {
-       while (ps_variables[i] == 0); // Wait for the process to be signaled
-       FillArrayWithPrices(prices, tickers, &start, &end);
-       SendData(&fd[i][0], numTickers, prices, start);
-     }
+     while (ps_variables[i] == 0); // Wait for the process to be signaled
+     FillArrayWithPrices(new_prices, start, end);
+     ps_variables[i] = 0; // Turn the signal back off
    }
 }
 
@@ -41,7 +39,7 @@ void GetNewPrices(double* prices, int numTickers, int start, int end)
  */
 void SplitIntoProcesses()
 {
-  int numTickers, start, end, i, x;
+  int start, end, i;
 //  int status;
   pid_t pid[NUM_PROCESSES];
 
@@ -49,14 +47,12 @@ void SplitIntoProcesses()
   fd = (int**)malloc(sizeof(int*) * NUM_PROCESSES);
   for (i = 0; i < NUM_PROCESSES; i++)
   {
-    ps_variables[i] = 0; // Will trigger the process to find prices when = 1
     fd[i] = (int*)malloc(sizeof(int) * 2);
     if (pipe(fd[i])==-1)
     {
         fprintf(stderr, "Pipe Failed" );
         return;
     }
-    printf("ps_var[i] = %d\n", ps_variables[0]);
   }
 
 // Create child processes
@@ -65,25 +61,25 @@ void SplitIntoProcesses()
     if ((pid[i] = fork()) == 0)
     {
       // Child process
-      x = i;
       pid[i] = getpid();
-      if (x == 0) start = 0;
+      if (i == 0) start = 0;
       else
       {
-        start = x * totalTickers / NUM_PROCESSES;
-        if (x < totalTickers / NUM_PROCESSES)
+        start = i * totalTickers / NUM_PROCESSES;
+        if (i < totalTickers / NUM_PROCESSES)
           start++;
       }
 
-      end = (x+1) * totalTickers / NUM_PROCESSES - 1;
-      if (x+1 != NUM_PROCESSES && totalTickers % NUM_PROCESSES != 0)
+      end = (i+1) * totalTickers / NUM_PROCESSES - 1;
+      if (i+1 != NUM_PROCESSES && totalTickers % NUM_PROCESSES != 0)
         end++;
 
-      numTickers = end - start + 1;
-      FillArrayWithPrices(original_prices, tickers, &start, &end);
-      SendData(&fd[i][0], numTickers, original_prices, start);
-      ps_variables[i] = 1;
-      GetNewPrices(new_prices, numTickers, start, end);
+
+      FillArrayWithPrices(original_prices, &start, &end);
+    //  SendData(&fd[i][0], numTickers, original_prices, start);
+    //  GetNewPrices(new_prices, numTickers, start, end);
+      ps_variables[i] = 0; // Signal the process is done
+      GetNewPricesProcesses(&start, &end, i);
     }
 
 
@@ -92,16 +88,11 @@ void SplitIntoProcesses()
    // Parent process
   for (i = 0; i < NUM_PROCESSES; i++)
   {
-    while (ps_variables[i] == 0); // wait for the process to finish its job
+    while (ps_variables[i] == 1);
+    ps_variables[i] = 0; // Make the process idle again
+//    ReceiveData(&fd[i][0], original_prices);
   }
-    // waitpid(pid[i], &status, 0);
 
-  for (i = 0; i < NUM_PROCESSES; i++)
-  {
-  //  while (ps_variables[i] == 0);
-    ReceiveData(&fd[i][0], original_prices);
-    printf("ps_vars[i] = %d\n", ps_variables[i]);
-  }
 
 }
 

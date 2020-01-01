@@ -79,11 +79,32 @@ int main(int argc, char *argv[])
     original_prices = mmap(NULL, sizeof(double) * totalTickers, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     new_prices = mmap(NULL, sizeof(double) * totalTickers, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     ps_variables = mmap(NULL, sizeof(int) * NUM_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    for (i = 0; i < NUM_PROCESSES; i++)
+       ps_variables[i] = 1; // Initialize to 1, will turn off in SplitIntoProcesses
     SplitIntoProcesses();
 
     end_time = time(NULL);
     printf("Time to find orignal prices = %ld seconds\n", end_time - start_time);
 
+
+ // Now start finding and comparing the new prices
+    while (1)
+    {
+      puts("GRABBING NEW PRICES");
+      start_time = time(NULL);
+      for (i = 0; i < NUM_PROCESSES; i++)
+        ps_variables[i] = 1; // Turn each process back on
+
+      // Ensure each process has completed and is idle again
+      for (i = 0; i < NUM_PROCESSES; i++)
+        while (ps_variables[i] == 1);
+
+      ComparePrices(original_prices, new_prices);
+      end_time = time(NULL);
+      printf("Time elapsed = %ld seconds\n", end_time - start_time);
+      // for (i = 0; i < totalTickers; i++)
+      //    printf("%s - %lf\n", tickers[i], new_prices[i]);
+    }
   }
 
 
@@ -161,7 +182,7 @@ void *StartPriceScan()
 
     // printf("x = %d, start = %d, end = %d\n", x, start, end);
 
-     FillArrayWithPrices(prices, tickers, &start, &end);
+     FillArrayWithPrices(prices, &start, &end);
      cond_variables[x] = 0;
      PyGILState_Release(gstate);
 
@@ -220,7 +241,7 @@ void GrabTickersFromFile(FILE* fp){
  * Fills the array "tickerArray" with double type values of stock prices for
  * each ticker in "tickers"
  */
-void FillArrayWithPrices(double* tickerArray, char** tickers, int *start, int *end)
+void FillArrayWithPrices(double* tickerArray, int *start, int *end)
 {
   char* ticker_result = (char*)malloc(sizeof(char) * TICKER_SIZE_HOLD);
 

@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
   int threads_or_processes = 0, i;
 
   SetupPython();
-//  CallPythonGrabTickers(); // Grab tickers with earnings calls today and store in "tickers.txt"
+  CallPythonGrabTickers(); // Grab tickers with earnings calls today and store in "tickers.txt"
 
 // Grab how many tickers we are watching from the file
   fp = fopen("tickers.txt", "r");
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
     puts("GRABBING ORIGINAL PRICES");
     parent_pid = getpid();
 
-  // USe mmap to create shared memory between process
+  // Use mmap to create shared memory between process
     original_prices = mmap(NULL, sizeof(double) * totalTickers, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     new_prices = mmap(NULL, sizeof(double) * totalTickers, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     ps_variables = mmap(NULL, sizeof(int) * NUM_PROCESSES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -85,7 +85,8 @@ int main(int argc, char *argv[])
 
     end_time = time(NULL);
     printf("Time to find orignal prices = %ld seconds\n", end_time - start_time);
-
+    for (i = 0; i < totalTickers; i++)
+        printf("%s - %lf\n", tickers[i], original_prices[i]);
 
  // Now start finding and comparing the new prices
     while (1)
@@ -259,7 +260,7 @@ void FillArrayWithPrices(double* tickerArray, int *start, int *end)
       {
          ParseComma(ticker_result);
          sscanf(ticker_result, "%lf", &tickerArray[i]);
-      //   printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
+  //       printf("%s - %.4lf\n", tickers[i], tickerArray[i]);
     }
 
   } // end for loop
@@ -312,6 +313,7 @@ void ComparePrices(double* original, double* new){
       {
         printf("Difference for %s is %lf\n", tickers[i], difference);
         printf("   Percent change is %.2lf\n", percent_change);
+        printf("Current price of %s is %.2lf\n", tickers[i], new[i]);
         if (alreadyOpened[i] == 0)
         {
           PyGILState_STATE bstate;

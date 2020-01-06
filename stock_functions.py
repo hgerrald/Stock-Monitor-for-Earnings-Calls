@@ -12,22 +12,24 @@ def GrabStockPrice(symbol):
     try:
         stock_url = 'https://www.marketwatch.com/investing/stock/' + symbol
         html = urllib.urlopen(stock_url)
-        stock_html_data = BeautifulSoup(html, 'html.parser')
-        string_html_data = str(stock_html_data)
-        start_search = string_html_data.find('<sup class=\"character\">$</sup>')
-      # About 10% - 20% have differnt HTML code
-        if string_html_data[start_search + 32: start_search + 36] == "span":
-            span = string_html_data.find("span", start_search)
-            start_stock = string_html_data.find(">", span)
-            end_stock = string_html_data.find("<", span)
-            stock_price = string_html_data[start_stock+1: end_stock]
+        soup = BeautifulSoup(html, 'lxml')
+        section = soup.find_all('bg-quote', class_='value')
 
-        else:
-            end_search = string_html_data.index('</bg-quote>', start_search)
-            small_string = string_html_data[start_search: end_search]
-            start_stock = small_string.rfind('>', 0, len(small_string))
-            stock_price = small_string[start_stock+1: end_search]
+        string_html_data = str(section)
+        start = string_html_data.find(">")
+        end = string_html_data.find("<", string_html_data.find("<") + 1)
+        stock_price = string_html_data[start+1:end]
 
+        sample = open("sample.txt", "w")
+        sample.write(string_html_data)
+        sample.close()
+
+        if stock_price == "[":
+            new_section = soup.find_all('span', class_='value')
+            string_html_data2 = str(new_section)
+            start = string_html_data2.find(">")
+            end = string_html_data2.find("<", string_html_data2.find("<") + 1)
+            stock_price = string_html_data2[start+1:end]
 
     except:
         stock_price = "N/A"

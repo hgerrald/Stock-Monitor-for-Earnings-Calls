@@ -14,7 +14,7 @@ extern char **tickers;
 extern int totalTickers;
 extern int *ps_variables;
 extern pid_t parent_pid;
-int **fd;
+//int **fd;
 
 
 /******************************************************************************
@@ -41,19 +41,20 @@ void SplitIntoProcesses()
 {
   int start, end, i;
 //  int status;
-  pid_t pid[NUM_PROCESSES];
+  pid_t *pid;
+  pid = (pid_t*)malloc(sizeof(pid_t) * NUM_PROCESSES);
 
 // Malloc for and open pipes
-  fd = (int**)malloc(sizeof(int*) * NUM_PROCESSES);
-  for (i = 0; i < NUM_PROCESSES; i++)
-  {
-    fd[i] = (int*)malloc(sizeof(int) * 2);
-    if (pipe(fd[i])==-1)
-    {
-        fprintf(stderr, "Pipe Failed" );
-        return;
-    }
-  }
+  // fd = (int**)malloc(sizeof(int*) * NUM_PROCESSES);
+  // for (i = 0; i < NUM_PROCESSES; i++)
+  // {
+  //   fd[i] = (int*)malloc(sizeof(int) * 2);
+  //   if (pipe(fd[i])==-1)
+  //   {
+  //       fprintf(stderr, "Pipe Failed" );
+  //       return;
+  //   }
+  // }
 
 // Create child processes
   for (i = 0; i < NUM_PROCESSES; i++)
@@ -77,7 +78,6 @@ void SplitIntoProcesses()
 
       FillArrayWithPrices(original_prices, &start, &end);
     //  SendData(&fd[i][0], numTickers, original_prices, start);
-    //  GetNewPrices(new_prices, numTickers, start, end);
       ps_variables[i] = 0; // Signal the process is done
       GetNewPricesProcesses(&start, &end, i);
     }

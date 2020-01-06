@@ -20,9 +20,9 @@ def GrabStockPrice(symbol):
         end = string_html_data.find("<", string_html_data.find("<") + 1)
         stock_price = string_html_data[start+1:end]
 
-        sample = open("sample.txt", "w")
-        sample.write(string_html_data)
-        sample.close()
+        # sample = open("sample.txt", "w")
+        # sample.write(string_html_data)
+        # sample.close()
 
         if stock_price == "[":
             new_section = soup.find_all('span', class_='value')

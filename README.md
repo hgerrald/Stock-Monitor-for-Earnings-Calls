@@ -12,11 +12,6 @@ To combat the slow speed, the C code splits the workload into either threads or 
 The processes option usually runs faster but took longer to setup since processes don't typically share memory. I used mmap to allow the processes to share memory for a few specific variables to combat this issue. 
 
 ## Using the Program
-There are a few necessary dependencies needed to integrate Python with C. I'm not really sure the process I took here (I'll provide detailed steps when I have more time), but hopefully just cloning the repo and running make will work. I'm running the program on Ubuntu 18.04.
+Sadly the program no longer runs as MarketWatch is now able to detect I am a bot. I will hopefully be able to find a way around this when I get more free time :(
 
-
-*CallPythonGrabTickers()* in **main.c** calls the Python script to find tickers with earnings calls that day and saves them in a file called "tickers.txt". If one wanted to edit this list, just comment this line out and edit the text file. 
-
-If it is not commented out, follow the instructions in the terminal and save the webpage the browser directs you to as stated (in the same directory that the program is running!). I need to learn Javascript better to make this step automatic. The website only shows the first 100 stocks, so the user has to hit "Load More" to get the rest to show up. Loading all and saving the text locally will make the stocks past 100 visible and able to be parsed. 
-
-* There is currently a bug if over 100 stocks are being tracked which I need to come back and fix. I think this is a parsing issue since the stocks over index 100 are saved in a text file differently. For now just right click and save as without hitting "Load More" and it shouldn't be an issue. 
+![bot](https://github.com/hgerrald/Stock-Monitor-for-Earnings-Calls/blob/master/bot.png?raw=true)

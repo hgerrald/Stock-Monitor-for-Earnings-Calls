@@ -14,9 +14,6 @@ def GrabStockPrice(symbol):
         html = urllib.urlopen(stock_url)
         stock_html_data = BeautifulSoup(html, 'html.parser')
         string_html_data = str(stock_html_data)
-        f = open("temp.txt", "w")
-        f.write(string_html_data)
-        f.close()
         start_search = string_html_data.find('<sup class=\"character\">$</sup>')
       # About 10% - 20% have differnt HTML code
         if string_html_data[start_search + 32: start_search + 36] == "span":
